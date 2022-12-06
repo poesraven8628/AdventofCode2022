@@ -1,0 +1,36 @@
+(ql:quickload "str")
+
+(defun get-all-input (filename)
+  (with-open-file (stream filename)
+    (loop for line = (read-line stream nil)
+          while line
+          collect line)))
+
+(defun find-start (s)
+  (do* ((i 4 (+ i 1))
+	(a (aref s 0) (aref s (- i 3)))
+	(b (aref s 1) (aref s (- i 2)))
+	(c (aref s 2) (aref s (- i 1)))
+	(d (aref s 3) (aref s i)))
+       ((and (not (equal a b))
+	     (not (equal a c))
+	     (not (equal a d))
+	     (not (equal b c))
+	     (not (equal b d))
+	     (not (equal c d)))
+	(+ i 1))))
+
+(defun check-substring (s)
+  (do* ((i 0 (+ i 1))
+	(alpha "abcdefghijklmnopqrstuvwxyz ")
+	(count (str:count-substring (str:substring i (+ i 1) alpha) s)
+	       (str:count-substring (str:substring i (+ i 1) alpha) s)))
+       ((> i 26) t)
+    (when (> count 1)
+      (return-from check-substring nil))))
+
+(defun find-message (s)
+  (do* ((i 14 (+ i 1)))
+       ((check-substring (str:substring (- i 14) i s)) i)))
+       
+(find-start (first (get-all-input "input.txt")))
