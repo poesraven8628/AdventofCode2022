@@ -1,0 +1,98 @@
+(ql:quickload "str")
+
+(defun get-all-input (input)
+  (with-open-file (stream input)
+    (loop for line = (read-line stream nil)
+          while line
+          collect line)))
+
+(defstruct monkey
+  name
+  items
+  operation
+  test
+  ontrue
+  onfalse
+  checked)
+
+(defun parse-input (s)
+  (let ((ret nil)
+	(monk nil))
+    (dolist (e s ret)
+      (setf e (str:words e))
+      (cond ((equal (first e) "Monkey")
+	     (if (not (null monk))
+		 (push monk ret))
+	     (setf monk (make-monkey))
+	     (setf (monkey-name monk) (parse-integer (second e) :junk-allowed t))
+	     (setf (monkey-checked monk) 0))
+	    ((equal (first e) "Starting")
+	     (dolist (item (rest (rest e)))
+	       (push (parse-integer item :junk-allowed t) (monkey-items monk)))
+	     (setf (monkey-items monk) (reverse (monkey-items monk))))
+	    ((equal (first e) "Operation:")
+	     (cond ((equal (fifth e) "+")
+		    (push (parse-integer (sixth e)) (monkey-operation monk))
+		    (push 'plus (monkey-operation monk)))
+		   ((and (equal (fifth e) "*")
+			 (equal (sixth e) "old"))
+		    (push 'square (monkey-operation monk)))
+		   (t
+		    (push (parse-integer (sixth e)) (monkey-operation monk))
+		    (push 'times (monkey-operation monk)))))
+	    ((equal (first e) "Test:")
+	     (setf (monkey-test monk) (parse-integer (fourth e))))
+	    ((and (equal (first e) "If")
+		  (equal (second e) "true:"))
+	     (setf (monkey-ontrue monk) (parse-integer (sixth e))))
+	    ((and (equal (first e) "If")
+		  (equal (second e) "false:"))
+	     (setf (monkey-onfalse monk) (parse-integer (sixth e))))))
+    (push monk ret)
+    (reverse ret)))
+
+(defun add-to-monkey (monkeys id item)
+  (dolist (monk monkeys)
+    (when (equal (monkey-name monk) id)
+      (setf (monkey-items monk)
+	    (append (monkey-items monk) (list item))))))
+
+(defun do-monkey-turn (monk monkeys lessworry)
+  (let ((monkmod 1))
+    (dolist (m monkeys)
+      (setf monkmod (* monkmod (monkey-test m))))
+    (dolist (item (monkey-items monk))
+      (incf (monkey-checked monk))
+      (case (first (monkey-operation monk))
+	(plus (setf item (+ item (second (monkey-operation monk)))))
+	(times (setf item (* item (second (monkey-operation monk)))))
+	(square (setf item (* item item))))
+      (if (equal lessworry 'yes)
+	  (setf item (floor (/ item 3)))
+	  (setf item (mod item monkmod)))
+      (if (zerop (rem item (monkey-test monk)))    
+	  (add-to-monkey monkeys (monkey-ontrue monk) item)
+	  (add-to-monkey monkeys (monkey-onfalse monk) item)))
+    (setf (monkey-items monk) nil)
+    monkeys))
+
+(defun do-monkey-round (lessworry monkeys)
+  (dolist (monk monkeys monkeys)
+    (setf monkeys (do-monkey-turn monk monkeys lessworry))))
+
+(defun do-rounds (lessworry n monkeys)
+  (dotimes (i n monkeys)
+    (setf monkeys (do-monkey-round lessworry monkeys))))
+
+(defun get-monkey-business (monkeys)
+  (let ((high1 0)
+	(high2 0))
+    (dolist (monk monkeys (* high1 high2))
+      (cond ((> (monkey-checked monk) high1)
+	     (setf high2 high1)
+	     (setf high1 (monkey-checked monk)))
+	    ((> (monkey-checked monk) high2)
+	     (setf high2 (monkey-checked monk)))))))
+
+(get-monkey-business (do-rounds 'yes 20 (parse-input (get-all-input "input.txt"))))
+(get-monkey-business (do-rounds 'no 10000 (parse-input (get-all-input "input.txt"))))
